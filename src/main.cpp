@@ -34,14 +34,28 @@ int main() {
   uWS::Hub h;
 
   PID pid;
-  //bool twiddle = true;
+  bool twiddle = false;
   
   /**
    * TODO: Initialize the pid variable.
    */
-  pid.Init(0.1, 0.002, 1.5);
+  std::vector<double> p = {0.120627, 0.00195339, 1.71875}; //updated  twiddle start for best error
+  std::vector<double> dp = {0.01, 0.00001, 0.01};
+  double tolerance = 0.0001;
+  double best_cte_twiddle = 100000;
+  int stage_twiddle = 0;
+  int index_twiddle = 0;
+  int steps = 0;
+  double total_cte = 0;
+  
+  if (!twiddle)
+  {
+    //potential values tuned through twiddle
+    pid.Init(0.133688, 0.00194405, 1.71359);    
+  }
+  
 
-  h.onMessage([&pid](uWS::WebSocket<uWS::SERVER> ws, char *data, size_t length, 
+  h.onMessage([&pid, &twiddle, &p, &dp, &tolerance, &best_cte_twiddle, &stage_twiddle, &index_twiddle, &steps, &total_cte](uWS::WebSocket<uWS::SERVER> ws, char *data, size_t length, 
                      uWS::OpCode opCode) {
     // "42" at the start of the message means there's a websocket message event.
     // The 4 signifies a websocket message
@@ -67,19 +81,118 @@ int main() {
            *   Maybe use another PID controller to control the speed!
            */
           
-          pid.UpdateError(cte);
-          steer_value = pid.TotalError();
-          
-          // DEBUG
-          std::cout << "CTE: " << cte << " Steering Value: " << steer_value 
-                    << std::endl;
+          if (twiddle)
+          {
+            //insert code
+            if (steps > 800)
+            {
+              if (stage_twiddle == 0)
+              {
+                //first part of loop              
+                best_cte_twiddle = total_cte;  
+                p[index_twiddle] += dp[index_twiddle];
+                stage_twiddle = 1;
+              }
+              else if (stage_twiddle == 1)
+              {
+                if (total_cte < best_cte_twiddle)
+                {
+                  best_cte_twiddle = total_cte;
+                  dp[index_twiddle] *= 1.1;
+                  index_twiddle = (index_twiddle+1)%3;
+                  p[index_twiddle] += dp[index_twiddle];
+                  stage_twiddle = 1; //not done with this area till we get best error
+                }
+                else
+                {
+                  p[index_twiddle] -= 2*dp[index_twiddle];
+                  if (p[index_twiddle] < 0) //since we are decrementing, we don't want to accidentally make it negative
+                  {
+                    p[index_twiddle] = 0; //set it back to 0                                                                        
+                  }
+                  index_twiddle = (index_twiddle+1)%3;
+                  stage_twiddle = 2;
 
-          json msgJson;
-          msgJson["steering_angle"] = steer_value;
-          msgJson["throttle"] = 0.3;
-          auto msg = "42[\"steer\"," + msgJson.dump() + "]";
-          std::cout << msg << std::endl;
-          ws.send(msg.data(), msg.length(), uWS::OpCode::TEXT);
+                }
+              }
+              else if (stage_twiddle == 2)
+              {
+                if (total_cte < best_cte_twiddle)
+                {
+                  best_cte_twiddle = total_cte;
+                  dp[index_twiddle] *= 1.1;
+                  index_twiddle = (index_twiddle+1)%3;
+                  p[index_twiddle] += dp[index_twiddle];
+                  stage_twiddle = 1;                
+                }
+                else
+                {
+                  p[index_twiddle] += dp[index_twiddle];
+                  dp[index_twiddle] *= 0.9;
+                  index_twiddle = (index_twiddle+1)%3;
+                  p[index_twiddle] += dp[index_twiddle];
+                  stage_twiddle = 1;
+                }
+
+              }
+
+              if ((std::accumulate(dp.begin(), dp.end(), 0) < tolerance) && (steps > 1000)) //basically never going to happen
+              {
+                //reset simulator to beginning 
+                //steps = 0;
+                //pid.Init(p[0], p[1], p[2]); 
+                //stage_twiddle = 0;
+                std::cout << "Final gains " << p[0] << ", " << p[1] << ", " << p[2] << std::endl; 
+                
+              }
+              else
+              {
+                std::cout << "gains " << p[0] << ", " << p[1] << ", " << p[2] << "Error: " << total_cte << std::endl;
+                steps = 0;
+                total_cte = 0;
+                std::string reset_msg = "42[\"reset\",{}]";
+                ws.send(reset_msg.data(), reset_msg.length(), uWS::OpCode::TEXT);
+              }              
+            }
+            else
+            {
+              if (steps == 0)
+              {
+                pid.Init(p[0], p[1], p[2]);              
+              }
+              steps++;            
+              pid.UpdateError(cte);
+              steer_value = pid.TotalError();
+              total_cte += pow(cte, 2);
+              //std::cout << total_cte << std::endl;
+
+              json msgJson;
+              msgJson["steering_angle"] = steer_value;
+              msgJson["throttle"] = 0.3;
+              auto msg = "42[\"steer\"," + msgJson.dump() + "]";
+              //std::cout << msg << std::endl;
+              ws.send(msg.data(), msg.length(), uWS::OpCode::TEXT);              
+            }
+            
+          }
+          else
+          {
+            pid.UpdateError(cte);
+            steer_value = pid.TotalError();
+
+            // DEBUG
+            //std::cout << "CTE: " << cte << " Steering Value: " << steer_value 
+            //          << std::endl;
+
+            json msgJson;
+            msgJson["steering_angle"] = steer_value;
+            msgJson["throttle"] = 0.3;
+            auto msg = "42[\"steer\"," + msgJson.dump() + "]";
+            //std::cout << msg << std::endl;
+            ws.send(msg.data(), msg.length(), uWS::OpCode::TEXT);
+            
+          }
+          
         }  // end "telemetry" if
       } else {
         // Manual driving
