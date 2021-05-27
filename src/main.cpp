@@ -40,8 +40,8 @@ int main() {
   /**
    * TODO: Initialize the pid variable.
    */
-  std::vector<double> p = {0.194739, 0.00677705, 2.10838}; //updated  twiddle start for best error
-  std::vector<double> dp = {0.001, 0.0001, 0.01};
+  std::vector<double> p = {0.095639, 0.00088705, 0.80838}; //updated  twiddle start for best error
+  std::vector<double> dp = {0.01, 0.0001, 0.1};
   
   double tolerance = 0.000000001;
   double best_cte_twiddle = 100000;
@@ -54,7 +54,7 @@ int main() {
   {
     //potential values tuned through twiddle
     //{0.133688, 0.00194405, 1.71359}
-    pid.Init(0.194739, 0.00677705, 2.10838); 
+    pid.Init(0.105639, 0.00088705, 0.80838); 
     pid_speed.Init(0.104739, 0.00177705, 2.10838);
   }
   
@@ -162,17 +162,20 @@ int main() {
             {
               if (steps == 0)
               {
-                pid.Init(p[0], p[1], p[2]);              
+                pid.Init(p[0], p[1], p[2]);  
+                pid_speed.Init(0.104739, 0.00177705, 2.10838);
               }
               steps++;            
               pid.UpdateError(cte);
+              pid_speed.UpdateError(speed - 30);
               steer_value = pid.TotalError();
               total_cte += pow(cte, 2);
+              total_cte += pow(speed - 30, 2);
               //std::cout << total_cte << std::endl;
 
               json msgJson;
               msgJson["steering_angle"] = steer_value;
-              msgJson["throttle"] = 0.3;
+              msgJson["throttle"] = pid_speed.TotalError();
               auto msg = "42[\"steer\"," + msgJson.dump() + "]";
               //std::cout << msg << std::endl;
               ws.send(msg.data(), msg.length(), uWS::OpCode::TEXT);              
