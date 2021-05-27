@@ -98,7 +98,18 @@ A well written README file can enhance your project and portfolio.  Develop your
 
 ## Reflection
 
+### PID Control Theory
+
+The PID Control project was designed in order to be able to drive a car around the race track using Control Theory. The idea is to introduce a controller to continously correct the car's steering angle and speed based upon cross track error and speed difference respectively. As seen below, the controller consists of three components: Proportional error, Integral error, and Differential error. 
+
 ![PID](https://user-images.githubusercontent.com/39423033/119905544-7355f480-bf1a-11eb-80b9-1d7b11148714.jpg)
 
+The proportional gain of the controller is directly related to the error- resulting in a large value if the error is large (to try to reduce that error), and a small value if the error is small. By keeping direct track of the error with this gain, it is a very important parameter to tune.
 
+The integral gain keeps track of the cross track error throughout by accumulating the error throughout. As a result, the value of the gain is relatively lower by a few order of magnitudes as a higher gain will cause unnecessary swerving and the slightest change in error could affect vehicle trajectory!
 
+The final gain is the differential gain- this keeps track of the current and previous error- by taking their difference- this allows for the derivative gain to step in whenever the difference in error is large and make an impact by contributing the the PID total error calculation- acting as a damper. 
+
+### PID Tuning
+
+The final gains were chosen through a combination of manual tuning and Twiddle. I started off my manually tuning to get a feel of which range I should use twiddle to narrow down the selectable gains as twiddle test drives the PID gains and then alters its value to test another combination- this can get very expensive considering GPU hours are limited and there are a lot of variables at play. The final gains were narrowed down based upon the behavior of the vehicle around sharp turns- as gains that are too large, especially the differential gain, can cause the vehicle to oscillate around sharp turns resulting in uncomfortable and dangerous driving behavior.
