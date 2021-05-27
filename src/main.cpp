@@ -34,14 +34,16 @@ int main() {
   uWS::Hub h;
 
   PID pid;
+  PID pid_speed;
   bool twiddle = false;
   
   /**
    * TODO: Initialize the pid variable.
    */
-  std::vector<double> p = {0.120627, 0.00195339, 1.71875}; //updated  twiddle start for best error
-  std::vector<double> dp = {0.01, 0.00001, 0.01};
-  double tolerance = 0.0001;
+  std::vector<double> p = {0.194739, 0.00677705, 2.10838}; //updated  twiddle start for best error
+  std::vector<double> dp = {0.001, 0.0001, 0.01};
+  
+  double tolerance = 0.000000001;
   double best_cte_twiddle = 100000;
   int stage_twiddle = 0;
   int index_twiddle = 0;
@@ -51,11 +53,13 @@ int main() {
   if (!twiddle)
   {
     //potential values tuned through twiddle
-    pid.Init(0.133688, 0.00194405, 1.71359);    
+    //{0.133688, 0.00194405, 1.71359}
+    pid.Init(0.194739, 0.00677705, 2.10838); 
+    pid_speed.Init(0.104739, 0.00177705, 2.10838);
   }
   
 
-  h.onMessage([&pid, &twiddle, &p, &dp, &tolerance, &best_cte_twiddle, &stage_twiddle, &index_twiddle, &steps, &total_cte](uWS::WebSocket<uWS::SERVER> ws, char *data, size_t length, 
+  h.onMessage([&pid, &twiddle, &p, &dp, &tolerance, &best_cte_twiddle, &stage_twiddle, &index_twiddle, &steps, &total_cte, &pid_speed](uWS::WebSocket<uWS::SERVER> ws, char *data, size_t length, 
                      uWS::OpCode opCode) {
     // "42" at the start of the message means there's a websocket message event.
     // The 4 signifies a websocket message
@@ -84,7 +88,7 @@ int main() {
           if (twiddle)
           {
             //insert code
-            if (steps > 800)
+            if (steps > 1400)
             {
               if (stage_twiddle == 0)
               {
@@ -136,7 +140,7 @@ int main() {
 
               }
 
-              if ((std::accumulate(dp.begin(), dp.end(), 0) < tolerance) && (steps > 1000)) //basically never going to happen
+              if ((std::accumulate(dp.begin(), dp.end(), 0) < tolerance) && (steps > 1500)) //basically never going to happen
               {
                 //reset simulator to beginning 
                 //steps = 0;
@@ -179,6 +183,9 @@ int main() {
           {
             pid.UpdateError(cte);
             steer_value = pid.TotalError();
+            //+ std::abs(20*steer_value)
+            pid_speed.UpdateError(speed - 30.0);
+            
 
             // DEBUG
             //std::cout << "CTE: " << cte << " Steering Value: " << steer_value 
@@ -186,7 +193,7 @@ int main() {
 
             json msgJson;
             msgJson["steering_angle"] = steer_value;
-            msgJson["throttle"] = 0.3;
+            msgJson["throttle"] = pid_speed.TotalError();;
             auto msg = "42[\"steer\"," + msgJson.dump() + "]";
             //std::cout << msg << std::endl;
             ws.send(msg.data(), msg.length(), uWS::OpCode::TEXT);
